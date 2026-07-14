@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Tài Chính</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#243449; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --green:#22c55e; --red:#f43f5e;
+    --blue:#3b82f6; --accent:#8b5cf6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); padding:20px; max-width:1100px; margin:0 auto}
+  h1{font-size:22px; margin-bottom:4px}
+  .sub{color:var(--muted); font-size:13px; margin-bottom:18px}
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:18px}
+  select,button{background:var(--card); color:var(--text); border:1px solid var(--line);
+    border-radius:10px; padding:9px 12px; font-size:14px; cursor:pointer}
+  button.active{background:var(--accent); border-color:var(--accent); color:#fff}
+  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px}
+  .card .label{color:var(--muted); font-size:13px; margin-bottom:6px}
+  .card .value{font-size:24px; font-weight:700}
+  .green{color:var(--green)} .red{color:var(--red)} .blue{color:var(--blue)}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px}
+  .chartbox{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px}
+  .chartbox h3{font-size:15px; margin-bottom:12px; color:var(--text)}
+  canvas{max-height:280px}
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  th,td{text-align:left; padding:10px 8px; border-bottom:1px solid var(--line)}
+  th{color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase}
+  td.amt{text-align:right; font-variant-numeric:tabular-nums}
+  .tag{padding:2px 8px; border-radius:20px; font-size:12px}
+  .tag.thu{background:rgba(34,197,94,.15); color:var(--green)}
+  .tag.chi{background:rgba(244,63,94,.15); color:var(--red)}
+  .empty,.loading{text-align:center; color:var(--muted); padding:40px}
+  .checks{display:flex; flex-wrap:wrap; gap:8px}
+  .checks label{background:var(--card); border:1px solid var(--line); border-radius:20px;
+    padding:6px 12px; font-size:13px; cursor:pointer; user-select:none}
+  .checks input{margin-right:6px}
+  @media(max-width:720px){ .cards{grid-template-columns:1fr} .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <h1>💰 Dashboard Tài Chính</h1>
+  <div class="sub" id="updated">Đang tải dữ liệu…</div>
+
+  <div class="controls">
+    <button id="modeMonth" class="active" onclick="setMode('month')">📅 Xem 1 tháng</button>
+    <button id="modeCompare" onclick="setMode('compare')">📊 So sánh nhiều tháng</button>
+    <select id="monthPick" onchange="render()" style="display:none"></select>
+  </div>
+
+  <div id="monthChecks" class="checks" style="display:none; margin-bottom:18px"></div>
+
+  <div id="content"><div class="loading">⏳ Đang tải…</div></div>
+
+<script>
+/* ====== CẤU HÌNH — chỉ cần sửa 2 dòng này ====== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbyctyp88R7RPqpxRzyLJu5t20Jnt6rlM4IzaanCF-uyBKd8VDEZ90iRevYgCgwrmJjR3g/exec';   // link web app kết thúc bằng /exec
+const API_KEY = 'hoangngoc';        // giống hệt API_KEY trong Code.gs
+/* =============================================== */
+
+let DATA = [], CURRENCY = 'đ', MODE = 'month', charts = {};
+const PALETTE = ['#8b5cf6','#3b82f6','#22c55e','#f59e0b','#f43f5e','#06b6d4','#ec4899','#84cc16','#eab308','#14b8a6','#a855f7','#f97316'];
+
+function money(n){ return Number(n||0).toLocaleString('vi-VN') + CURRENCY; }
+
+// Tải dữ liệu bằng JSONP (tránh lỗi CORS với Apps Script)
+function loadData(){
+  const cb = 'cb_' + Date.now();
+  window[cb] = function(res){
+    delete window[cb];
+    if(res.error){ document.getElementById('content').innerHTML =
+      '<div class="empty">⚠️ Lỗi: '+res.error+'. Kiểm tra lại API_KEY.</div>'; return; }
+    DATA = res.transactions || [];
+    CURRENCY = res.currency || 'đ';
+    document.getElementById('updated').textContent =
+      'Cập nhật lúc ' + new Date().toLocaleString('vi-VN') + ' • ' + DATA.length + ' giao dịch';
+    initControls();
+    render();
+  };
+  const s = document.createElement('script');
+  s.src = API_URL + '?key=' + encodeURIComponent(API_KEY) + '&callback=' + cb;
+  s.onerror = function(){ document.getElementById('content').innerHTML =
+    '<div class="empty">⚠️ Không kết nối được API. Kiểm tra API_URL.</div>'; };
+  document.body.appendChild(s);
+}
+
+function months(){
+  const set = {};
+  DATA.forEach(t => set[t.month] = true);
+  return Object.keys(set).sort();
+}
+
+function initControls(){
+  const ms = months();
+  const pick = document.getElementById('monthPick');
+  pick.innerHTML = ms.map(m => '<option value="'+m+'">'+m+'</option>').join('');
+  if(ms.length) pick.value = ms[ms.length-1];
+
+  const checks = document.getElementById('monthChecks');
+  const last6 = ms.slice(-6);
+  checks.innerHTML = ms.map(m =>
+    '<label><input type="checkbox" value="'+m+'" '+(last6.indexOf(m)>=0?'checked':'')+' onchange="render()">'+m+'</label>'
+  ).join('');
+}
+
+function setMode(m){
+  MODE = m;
+  document.getElementById('modeMonth').classList.toggle('active', m==='month');
+  document.getElementById('modeCompare').classList.toggle('active', m==='compare');
+  document.getElementById('monthPick').style.display   = m==='month'   ? '' : 'none';
+  document.getElementById('monthChecks').style.display = m==='compare' ? 'flex' : 'none';
+  render();
+}
+
+function destroyCharts(){ Object.values(charts).forEach(c => c && c.destroy()); charts = {}; }
+
+function render(){
+  destroyCharts();
+  if(!DATA.length){ document.getElementById('content').innerHTML = '<div class="empty">Chưa có giao dịch nào. Hãy nhắn cho bot Telegram để bắt đầu!</div>'; return; }
+  if(MODE==='month') renderMonth(); else renderCompare();
+}
+
+/* ---------- CHẾ ĐỘ 1 THÁNG ---------- */
+function renderMonth(){
+  const m = document.getElementById('monthPick').value;
+  const rows = DATA.filter(t => t.month === m);
+  const thu = sum(rows.filter(r=>r.direction==='Thu'));
+  const chi = sum(rows.filter(r=>r.direction==='Chi'));
+
+  document.getElementById('content').innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="label">💰 Tổng thu</div><div class="value green">${money(thu)}</div></div>
+      <div class="card"><div class="label">💸 Tổng chi</div><div class="value red">${money(chi)}</div></div>
+      <div class="card"><div class="label">💵 Số dư</div><div class="value ${thu-chi>=0?'green':'red'}">${money(thu-chi)}</div></div>
+    </div>
+    <div class="grid2">
+      <div class="chartbox"><h3>Chi tiêu theo danh mục</h3><canvas id="cChi"></canvas></div>
+      <div class="chartbox"><h3>Thu nhập theo danh mục</h3><canvas id="cThu"></canvas></div>
+    </div>
+    <div class="chartbox" style="margin-bottom:20px"><h3>Giao dịch tháng ${m}</h3><div id="tbl"></div></div>`;
+
+  doughnut('cChi', groupBy(rows.filter(r=>r.direction==='Chi'),'category'));
+  doughnut('cThu', groupBy(rows.filter(r=>r.direction==='Thu'),'category'));
+  renderTable(rows);
+}
+
+/* ---------- CHẾ ĐỘ SO SÁNH ---------- */
+function renderCompare(){
+  const picked = Array.from(document.querySelectorAll('#monthChecks input:checked')).map(c=>c.value).sort();
+  if(!picked.length){ document.getElementById('content').innerHTML='<div class="empty">Chọn ít nhất 1 tháng để so sánh.</div>'; return; }
+
+  const thuArr = picked.map(m => sum(DATA.filter(t=>t.month===m && t.direction==='Thu')));
+  const chiArr = picked.map(m => sum(DATA.filter(t=>t.month===m && t.direction==='Chi')));
+  const balArr = picked.map((m,i)=> thuArr[i]-chiArr[i]);
+  const totThu = thuArr.reduce((a,b)=>a+b,0), totChi = chiArr.reduce((a,b)=>a+b,0);
+
+  document.getElementById('content').innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="label">💰 Tổng thu (${picked.length} tháng)</div><div class="value green">${money(totThu)}</div></div>
+      <div class="card"><div class="label">💸 Tổng chi</div><div class="value red">${money(totChi)}</div></div>
+      <div class="card"><div class="label">💵 Số dư</div><div class="value ${totThu-totChi>=0?'green':'red'}">${money(totThu-totChi)}</div></div>
+    </div>
+    <div class="chartbox" style="margin-bottom:20px"><h3>Thu vs Chi theo tháng</h3><canvas id="cBar"></canvas></div>
+    <div class="grid2">
+      <div class="chartbox"><h3>Xu hướng số dư</h3><canvas id="cLine"></canvas></div>
+      <div class="chartbox"><h3>Chi tiêu theo danh mục (tổng)</h3><canvas id="cCat"></canvas></div>
+    </div>`;
+
+  new Chart(document.getElementById('cBar'), {
+    type:'bar',
+    data:{ labels:picked, datasets:[
+      {label:'Thu', data:thuArr, backgroundColor:'#22c55e', borderRadius:6},
+      {label:'Chi', data:chiArr, backgroundColor:'#f43f5e', borderRadius:6}
+    ]},
+    options: barOpts()
+  });
+  charts.bar = Chart.getChart('cBar');
+
+  new Chart(document.getElementById('cLine'), {
+    type:'line',
+    data:{ labels:picked, datasets:[{ label:'Số dư', data:balArr, borderColor:'#8b5cf6',
+      backgroundColor:'rgba(139,92,246,.2)', fill:true, tension:.3, pointRadius:4 }]},
+    options: barOpts()
+  });
+  charts.line = Chart.getChart('cLine');
+
+  doughnut('cCat', groupBy(DATA.filter(t=>picked.indexOf(t.month)>=0 && t.direction==='Chi'),'category'));
+}
+
+/* ---------- Tiện ích ---------- */
+function sum(rows){ return rows.reduce((a,r)=>a+Number(r.amount||0),0); }
+function groupBy(rows, key){
+  const g={}; rows.forEach(r=>{ const k=r[key]||'Khác'; g[k]=(g[k]||0)+Number(r.amount||0); });
+  return Object.entries(g).sort((a,b)=>b[1]-a[1]);
+}
+function doughnut(id, entries){
+  if(!entries.length){ document.getElementById(id).parentElement.innerHTML += '<div class="empty">Không có dữ liệu</div>'; return; }
+  new Chart(document.getElementById(id), {
+    type:'doughnut',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{ data:entries.map(e=>e[1]),
+      backgroundColor:PALETTE, borderColor:'#1e293b', borderWidth:2 }]},
+    options:{ plugins:{ legend:{ position:'bottom', labels:{ color:'#e2e8f0', boxWidth:12, padding:10 } },
+      tooltip:{ callbacks:{ label:c=>c.label+': '+money(c.parsed) } } } }
+  });
+  charts[id] = Chart.getChart(id);
+}
+function barOpts(){
+  return { plugins:{ legend:{ labels:{ color:'#e2e8f0' } },
+    tooltip:{ callbacks:{ label:c=>c.dataset.label+': '+money(c.parsed.y) } } },
+    scales:{ x:{ ticks:{ color:'#94a3b8' }, grid:{ color:'#334155' } },
+      y:{ ticks:{ color:'#94a3b8', callback:v=>(v/1e6)+'tr' }, grid:{ color:'#334155' } } } };
+}
+function renderTable(rows){
+  if(!rows.length){ document.getElementById('tbl').innerHTML='<div class="empty">Không có giao dịch.</div>'; return; }
+  const sorted = rows.slice().sort((a,b)=> (a.date<b.date?1:-1));
+  document.getElementById('tbl').innerHTML =
+    '<table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục</th><th>Ghi chú</th><th style="text-align:right">Số tiền</th></tr></thead><tbody>' +
+    sorted.map(r=>`<tr>
+      <td>${r.date}</td>
+      <td><span class="tag ${r.direction==='Thu'?'thu':'chi'}">${r.direction}</span></td>
+      <td>${r.category||''}${r.source?' <span style="color:var(--muted)">· '+r.source+'</span>':''}</td>
+      <td style="color:var(--muted)">${r.note||''}</td>
+      <td class="amt ${r.direction==='Thu'?'green':'red'}">${r.direction==='Thu'?'+':'-'}${money(r.amount)}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+loadData();
+</script>
+</body>
+</html>
