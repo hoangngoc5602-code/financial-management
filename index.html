@@ -144,6 +144,7 @@ function loadData(){
       '<div class="empty">⚠️ Lỗi: '+res.error+'. Kiểm tra lại API_KEY.</div>'; return; }
     DATA = res.transactions || [];
     CURRENCY = res.currency || 'đ';
+    normalizeDates();
     document.getElementById('updated').textContent =
       'Cập nhật ' + new Date().toLocaleString('vi-VN') + '  ·  ' + DATA.length + ' giao dịch';
     initControls();
@@ -157,8 +158,24 @@ function loadData(){
   document.body.appendChild(s);
 }
 
+// Chuẩn hoá ngày: tính tháng theo múi giờ máy bạn (VN) và hiển thị DD/MM/YYYY.
+// Nhờ vậy dashboard luôn gom đúng tháng, không lệ thuộc định dạng/múi giờ server gửi về.
+function normalizeDates(){
+  DATA.forEach(t=>{
+    const raw = t.date || t.month || '';
+    const d = new Date(raw);
+    if(raw && !isNaN(d.getTime())){
+      const y=d.getFullYear(), mo=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
+      t._d = d.getTime();
+      t._month = y+'-'+mo;          // gom theo tháng
+      t._disp = da+'/'+mo+'/'+y;    // hiển thị dd/mm/yyyy
+    } else {
+      t._d = 0; t._month = t.month || '—'; t._disp = t.date || '—';
+    }
+  });
+}
 function months(){
-  const set = {}; DATA.forEach(t => set[t.month] = true);
+  const set = {}; DATA.forEach(t => set[t._month] = true);
   return Object.keys(set).sort();
 }
 function initControls(){
@@ -192,7 +209,7 @@ function render(){
 /* ---------- 1 THÁNG ---------- */
 function renderMonth(){
   const m = document.getElementById('monthPick').value;
-  const rows = DATA.filter(t => t.month === m);
+  const rows = DATA.filter(t => t._month === m);
   const thu = sum(rows.filter(r=>r.direction==='Thu'));
   const chi = sum(rows.filter(r=>r.direction==='Chi'));
   const bal = thu - chi;
@@ -219,8 +236,8 @@ function renderMonth(){
 function renderCompare(){
   const picked = Array.from(document.querySelectorAll('#monthChecks input:checked')).map(c=>c.value).sort();
   if(!picked.length){ document.getElementById('content').innerHTML='<div class="empty">Chọn ít nhất 1 tháng để so sánh.</div>'; return; }
-  const thuArr = picked.map(m => sum(DATA.filter(t=>t.month===m && t.direction==='Thu')));
-  const chiArr = picked.map(m => sum(DATA.filter(t=>t.month===m && t.direction==='Chi')));
+  const thuArr = picked.map(m => sum(DATA.filter(t=>t._month===m && t.direction==='Thu')));
+  const chiArr = picked.map(m => sum(DATA.filter(t=>t._month===m && t.direction==='Chi')));
   const balArr = picked.map((m,i)=> thuArr[i]-chiArr[i]);
   const totThu = thuArr.reduce((a,b)=>a+b,0), totChi = chiArr.reduce((a,b)=>a+b,0);
 
@@ -249,7 +266,7 @@ function renderCompare(){
     options:barOpts()});
   charts.line = Chart.getChart('cLine');
 
-  doughnut('cCat', groupBy(DATA.filter(t=>picked.indexOf(t.month)>=0 && t.direction==='Chi'),'category'));
+  doughnut('cCat', groupBy(DATA.filter(t=>picked.indexOf(t._month)>=0 && t.direction==='Chi'),'category'));
 }
 
 /* ---------- Tiện ích ---------- */
@@ -288,11 +305,11 @@ function tooltip(){
 }
 function renderTable(rows){
   if(!rows.length){ document.getElementById('tbl').innerHTML='<div class="empty" style="padding:24px">Không có giao dịch.</div>'; return; }
-  const sorted = rows.slice().sort((a,b)=> (a.date<b.date?1:-1));
+  const sorted = rows.slice().sort((a,b)=> b._d - a._d);
   document.getElementById('tbl').innerHTML =
     '<table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục</th><th>Ghi chú</th><th style="text-align:right">Số tiền</th></tr></thead><tbody>'+
     sorted.map(r=>`<tr>
-      <td style="color:var(--muted)">${r.date}</td>
+      <td style="color:var(--muted)">${r._disp}</td>
       <td><span class="pill ${r.direction==='Thu'?'thu':'chi'}">${r.direction}</span></td>
       <td>${r.category||''}${r.source?' <span style="color:var(--faint)">· '+r.source+'</span>':''}</td>
       <td style="color:var(--muted)">${r.note||''}</td>
