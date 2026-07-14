@@ -3,73 +3,139 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Tài Chính</title>
+<title>Tài Chính · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
   :root{
-    --bg:#0f172a; --card:#1e293b; --card2:#243449; --line:#334155;
-    --text:#e2e8f0; --muted:#94a3b8; --green:#22c55e; --red:#f43f5e;
-    --blue:#3b82f6; --accent:#8b5cf6;
+    --bg:#14140f; --panel:#1a1a14; --ink:#ece9e0; --muted:#9b978a; --faint:#6c6858;
+    --hair:rgba(236,233,224,.10); --hair2:rgba(236,233,224,.055);
+    --glass:rgba(236,233,224,.035); --glass2:rgba(236,233,224,.02);
+    --gold:#c9a96a;      /* champagne — accent / số dư */
+    --sage:#8fb49a;      /* thu */
+    --clay:#cd9384;      /* chi */
+    --dust:#93a7c0;      /* xanh bụi */
   }
   *{box-sizing:border-box; margin:0; padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-    background:var(--bg); color:var(--text); padding:20px; max-width:1100px; margin:0 auto}
-  h1{font-size:22px; margin-bottom:4px}
-  .sub{color:var(--muted); font-size:13px; margin-bottom:18px}
-  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:18px}
-  select,button{background:var(--card); color:var(--text); border:1px solid var(--line);
-    border-radius:10px; padding:9px 12px; font-size:14px; cursor:pointer}
-  button.active{background:var(--accent); border-color:var(--accent); color:#fff}
-  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px}
-  .card .label{color:var(--muted); font-size:13px; margin-bottom:6px}
-  .card .value{font-size:24px; font-weight:700}
-  .green{color:var(--green)} .red{color:var(--red)} .blue{color:var(--blue)}
-  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px}
-  .chartbox{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px}
-  .chartbox h3{font-size:15px; margin-bottom:12px; color:var(--text)}
-  canvas{max-height:280px}
-  table{width:100%; border-collapse:collapse; font-size:14px}
-  th,td{text-align:left; padding:10px 8px; border-bottom:1px solid var(--line)}
-  th{color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase}
-  td.amt{text-align:right; font-variant-numeric:tabular-nums}
-  .tag{padding:2px 8px; border-radius:20px; font-size:12px}
-  .tag.thu{background:rgba(34,197,94,.15); color:var(--green)}
-  .tag.chi{background:rgba(244,63,94,.15); color:var(--red)}
-  .empty,.loading{text-align:center; color:var(--muted); padding:40px}
-  .checks{display:flex; flex-wrap:wrap; gap:8px}
-  .checks label{background:var(--card); border:1px solid var(--line); border-radius:20px;
-    padding:6px 12px; font-size:13px; cursor:pointer; user-select:none}
-  .checks input{margin-right:6px}
-  @media(max-width:720px){ .cards{grid-template-columns:1fr} .grid2{grid-template-columns:1fr} }
+  html{-webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility}
+  body{
+    font-family:'Be Vietnam Pro',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--bg); color:var(--ink); min-height:100dvh;
+    padding:clamp(20px,4vw,56px) clamp(16px,4vw,48px) 72px;
+    max-width:1180px; margin:0 auto; position:relative; overflow-x:hidden;
+  }
+  /* film grain rất nhẹ — chỉ tạo chất giấy, không phát sáng */
+  .grain{position:fixed; inset:0; z-index:50; pointer-events:none; opacity:.025;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--hair);
+    background:var(--glass);border-radius:999px;padding:6px 15px;font-size:10.5px;
+    letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+  h1{font-family:'Playfair Display',serif;font-weight:600;font-size:clamp(32px,5.4vw,56px);
+    line-height:1.04;letter-spacing:-.01em;margin:20px 0 10px}
+  h1 .accent{font-style:italic;color:var(--gold)}
+  .updated{color:var(--faint);font-size:13px;letter-spacing:.01em}
+
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:32px 0 8px}
+  .seg{display:inline-flex;padding:5px;gap:4px;background:var(--glass);border:1px solid var(--hair);border-radius:999px}
+  .seg button{font-family:inherit;font-size:13.5px;font-weight:500;color:var(--muted);background:transparent;
+    border:0;padding:9px 18px;border-radius:999px;cursor:pointer;transition:color .5s cubic-bezier(.32,.72,0,1)}
+  .seg button.active{color:#211b0f;background:var(--gold)}
+  select{font-family:inherit;font-size:13.5px;color:var(--ink);background:var(--glass);border:1px solid var(--hair);
+    border-radius:999px;padding:10px 16px;cursor:pointer;outline:none}
+  select option{background:#1a1a14;color:var(--ink)}
+  .checks{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 4px}
+  .checks label{font-size:12.5px;color:var(--muted);background:var(--glass);border:1px solid var(--hair);
+    border-radius:999px;padding:7px 13px;cursor:pointer;user-select:none;transition:all .4s cubic-bezier(.32,.72,0,1)}
+  .checks label:has(input:checked){color:var(--ink);border-color:rgba(201,169,106,.55);background:rgba(201,169,106,.12)}
+  .checks input{position:absolute;opacity:0;width:0;height:0}
+
+  /* double-bezel shell */
+  .shell{background:var(--glass2);border:1px solid var(--hair2);border-radius:26px;padding:7px;
+    transition:transform .6s cubic-bezier(.32,.72,0,1),border-color .6s}
+  .shell:hover{transform:translateY(-3px);border-color:var(--hair)}
+  .core{background:linear-gradient(180deg,rgba(236,233,224,.05),rgba(236,233,224,.015));
+    border:1px solid var(--hair);border-radius:20px;padding:26px 24px;height:100%;
+    box-shadow:inset 0 1px 1px rgba(236,233,224,.07)}
+  .card-label{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12.5px;
+    letter-spacing:.02em;margin-bottom:16px;font-weight:500}
+  .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:0 0 auto}
+  .ic svg{width:15px;height:15px;stroke-width:1.5}
+  .value{font-family:'Be Vietnam Pro',sans-serif;font-weight:600;font-size:clamp(26px,3.6vw,37px);
+    letter-spacing:-.01em;font-variant-numeric:tabular-nums;line-height:1}
+  .sub{color:var(--faint);font-size:12px;margin-top:10px;letter-spacing:.01em}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .full{margin:16px 0}
+  h3{font-family:'Playfair Display',serif;font-weight:500;font-size:19px;letter-spacing:-.005em;margin-bottom:4px}
+  .h3sub{color:var(--faint);font-size:11.5px;margin-bottom:18px;letter-spacing:.02em}
+  canvas{max-height:270px}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;padding:0 10px 14px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase}
+  td{padding:13px 10px;border-top:1px solid var(--hair2)}
+  td.amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:500}
+  .pill.thu{background:rgba(143,180,154,.14);color:var(--sage)}
+  .pill.chi{background:rgba(205,147,132,.14);color:var(--clay)}
+  .txt-green{color:var(--sage)} .txt-red{color:var(--clay)} .txt-violet{color:var(--gold)}
+  .empty,.loading{text-align:center;color:var(--muted);padding:70px 20px;font-size:14px}
+
+  @media(max-width:760px){
+    .cards{grid-template-columns:1fr} .grid2{grid-template-columns:1fr}
+    .core{padding:22px 20px}
+  }
 </style>
 </head>
 <body>
-  <h1>💰 Dashboard Tài Chính</h1>
-  <div class="sub" id="updated">Đang tải dữ liệu…</div>
+  <div class="grain"></div>
+
+  <header>
+    <span class="eyebrow" id="eb"><span class="dot"></span> Sổ thu chi cá nhân</span>
+    <h1>Dòng tiền của bạn, <span class="accent">trong một cái nhìn</span></h1>
+    <div class="updated" id="updated">Đang tải dữ liệu…</div>
+  </header>
 
   <div class="controls">
-    <button id="modeMonth" class="active" onclick="setMode('month')">📅 Xem 1 tháng</button>
-    <button id="modeCompare" onclick="setMode('compare')">📊 So sánh nhiều tháng</button>
+    <div class="seg">
+      <button id="modeMonth" class="active" onclick="setMode('month')">Xem 1 tháng</button>
+      <button id="modeCompare" onclick="setMode('compare')">So sánh nhiều tháng</button>
+    </div>
     <select id="monthPick" onchange="render()" style="display:none"></select>
   </div>
+  <div id="monthChecks" class="checks" style="display:none"></div>
 
-  <div id="monthChecks" class="checks" style="display:none; margin-bottom:18px"></div>
-
-  <div id="content"><div class="loading">⏳ Đang tải…</div></div>
+  <div id="content"><div class="loading">Đang tải…</div></div>
 
 <script>
-/* ====== CẤU HÌNH — chỉ cần sửa 2 dòng này ====== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbyctyp88R7RPqpxRzyLJu5t20Jnt6rlM4IzaanCF-uyBKd8VDEZ90iRevYgCgwrmJjR3g/exec';   // link web app kết thúc bằng /exec
-const API_KEY = 'hoangngoc';        // giống hệt API_KEY trong Code.gs
-/* =============================================== */
+/* ================= CẤU HÌNH (giữ nguyên) ================= */
+const API_URL = 'https://script.google.com/macros/s/AKfycbyctyp88R7RPqpxRzyLJu5t20Jnt6rlM4IzaanCF-uyBKd8VDEZ90iRevYgCgwrmJjR3g/exec';
+const API_KEY = 'hoangngoc';
+/* ======================================================== */
 
 let DATA = [], CURRENCY = 'đ', MODE = 'month', charts = {};
-const PALETTE = ['#8b5cf6','#3b82f6','#22c55e','#f59e0b','#f43f5e','#06b6d4','#ec4899','#84cc16','#eab308','#14b8a6','#a855f7','#f97316'];
+const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PALETTE = ['#c9a96a','#8fb49a','#93a7c0','#cd9384','#b6a2c4','#d4bd8a','#9db9a4','#c7a0a0'];
+const EASE = 'power3.out';
 
 function money(n){ return Number(n||0).toLocaleString('vi-VN') + CURRENCY; }
 
-// Tải dữ liệu bằng JSONP (tránh lỗi CORS với Apps Script)
+/* ---- SVG icon (nét mảnh) ---- */
+function icon(name){
+  const p = {
+    up:'<path d="M12 19V5M5 12l7-7 7 7"/>',
+    down:'<path d="M12 5v14M5 12l7 7 7-7"/>',
+    bal:'<path d="M3 6h18M3 12h18M3 18h18"/>'
+  }[name];
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';
+}
+
+/* ---- Tải dữ liệu bằng JSONP (giữ nguyên logic) ---- */
 function loadData(){
   const cb = 'cb_' + Date.now();
   window[cb] = function(res){
@@ -79,8 +145,9 @@ function loadData(){
     DATA = res.transactions || [];
     CURRENCY = res.currency || 'đ';
     document.getElementById('updated').textContent =
-      'Cập nhật lúc ' + new Date().toLocaleString('vi-VN') + ' • ' + DATA.length + ' giao dịch';
+      'Cập nhật ' + new Date().toLocaleString('vi-VN') + '  ·  ' + DATA.length + ' giao dịch';
     initControls();
+    intro();
     render();
   };
   const s = document.createElement('script');
@@ -91,24 +158,19 @@ function loadData(){
 }
 
 function months(){
-  const set = {};
-  DATA.forEach(t => set[t.month] = true);
+  const set = {}; DATA.forEach(t => set[t.month] = true);
   return Object.keys(set).sort();
 }
-
 function initControls(){
   const ms = months();
   const pick = document.getElementById('monthPick');
   pick.innerHTML = ms.map(m => '<option value="'+m+'">'+m+'</option>').join('');
   if(ms.length) pick.value = ms[ms.length-1];
-
-  const checks = document.getElementById('monthChecks');
   const last6 = ms.slice(-6);
-  checks.innerHTML = ms.map(m =>
+  document.getElementById('monthChecks').innerHTML = ms.map(m =>
     '<label><input type="checkbox" value="'+m+'" '+(last6.indexOf(m)>=0?'checked':'')+' onchange="render()">'+m+'</label>'
   ).join('');
 }
-
 function setMode(m){
   MODE = m;
   document.getElementById('modeMonth').classList.toggle('active', m==='month');
@@ -117,44 +179,46 @@ function setMode(m){
   document.getElementById('monthChecks').style.display = m==='compare' ? 'flex' : 'none';
   render();
 }
-
 function destroyCharts(){ Object.values(charts).forEach(c => c && c.destroy()); charts = {}; }
 
 function render(){
   destroyCharts();
-  if(!DATA.length){ document.getElementById('content').innerHTML = '<div class="empty">Chưa có giao dịch nào. Hãy nhắn cho bot Telegram để bắt đầu!</div>'; return; }
+  if(!DATA.length){ document.getElementById('content').innerHTML =
+    '<div class="empty">Chưa có giao dịch nào. Nhắn cho bot Telegram để bắt đầu ✨</div>'; return; }
   if(MODE==='month') renderMonth(); else renderCompare();
+  entrance();
 }
 
-/* ---------- CHẾ ĐỘ 1 THÁNG ---------- */
+/* ---------- 1 THÁNG ---------- */
 function renderMonth(){
   const m = document.getElementById('monthPick').value;
   const rows = DATA.filter(t => t.month === m);
   const thu = sum(rows.filter(r=>r.direction==='Thu'));
   const chi = sum(rows.filter(r=>r.direction==='Chi'));
+  const bal = thu - chi;
+  const rate = thu ? Math.round(bal/thu*100) : 0;
 
   document.getElementById('content').innerHTML = `
     <div class="cards">
-      <div class="card"><div class="label">💰 Tổng thu</div><div class="value green">${money(thu)}</div></div>
-      <div class="card"><div class="label">💸 Tổng chi</div><div class="value red">${money(chi)}</div></div>
-      <div class="card"><div class="label">💵 Số dư</div><div class="value ${thu-chi>=0?'green':'red'}">${money(thu-chi)}</div></div>
+      ${card('up','Tổng thu','txt-green','rgba(143,180,154,.14)','var(--sage)',thu,'Tháng '+m)}
+      ${card('down','Tổng chi','txt-red','rgba(205,147,132,.14)','var(--clay)',chi,'Tháng '+m)}
+      ${card('bal','Số dư',(bal>=0?'txt-green':'txt-red'),'rgba(201,169,106,.14)','var(--gold)',bal, (thu? 'Tiết kiệm '+rate+'% thu nhập':'—'))}
     </div>
     <div class="grid2">
-      <div class="chartbox"><h3>Chi tiêu theo danh mục</h3><canvas id="cChi"></canvas></div>
-      <div class="chartbox"><h3>Thu nhập theo danh mục</h3><canvas id="cThu"></canvas></div>
+      <div class="shell reveal"><div class="core"><h3>Chi tiêu</h3><div class="h3sub">Phân bổ theo danh mục</div><canvas id="cChi"></canvas></div></div>
+      <div class="shell reveal"><div class="core"><h3>Thu nhập</h3><div class="h3sub">Phân bổ theo danh mục</div><canvas id="cThu"></canvas></div></div>
     </div>
-    <div class="chartbox" style="margin-bottom:20px"><h3>Giao dịch tháng ${m}</h3><div id="tbl"></div></div>`;
+    <div class="full shell reveal"><div class="core"><h3>Giao dịch</h3><div class="h3sub">Tháng ${m}</div><div id="tbl"></div></div></div>`;
 
   doughnut('cChi', groupBy(rows.filter(r=>r.direction==='Chi'),'category'));
   doughnut('cThu', groupBy(rows.filter(r=>r.direction==='Thu'),'category'));
   renderTable(rows);
 }
 
-/* ---------- CHẾ ĐỘ SO SÁNH ---------- */
+/* ---------- SO SÁNH ---------- */
 function renderCompare(){
   const picked = Array.from(document.querySelectorAll('#monthChecks input:checked')).map(c=>c.value).sort();
   if(!picked.length){ document.getElementById('content').innerHTML='<div class="empty">Chọn ít nhất 1 tháng để so sánh.</div>'; return; }
-
   const thuArr = picked.map(m => sum(DATA.filter(t=>t.month===m && t.direction==='Thu')));
   const chiArr = picked.map(m => sum(DATA.filter(t=>t.month===m && t.direction==='Chi')));
   const balArr = picked.map((m,i)=> thuArr[i]-chiArr[i]);
@@ -162,73 +226,104 @@ function renderCompare(){
 
   document.getElementById('content').innerHTML = `
     <div class="cards">
-      <div class="card"><div class="label">💰 Tổng thu (${picked.length} tháng)</div><div class="value green">${money(totThu)}</div></div>
-      <div class="card"><div class="label">💸 Tổng chi</div><div class="value red">${money(totChi)}</div></div>
-      <div class="card"><div class="label">💵 Số dư</div><div class="value ${totThu-totChi>=0?'green':'red'}">${money(totThu-totChi)}</div></div>
+      ${card('up','Tổng thu','txt-green','rgba(143,180,154,.14)','var(--sage)',totThu,picked.length+' tháng')}
+      ${card('down','Tổng chi','txt-red','rgba(205,147,132,.14)','var(--clay)',totChi,picked.length+' tháng')}
+      ${card('bal','Số dư',((totThu-totChi)>=0?'txt-green':'txt-red'),'rgba(201,169,106,.14)','var(--gold)',totThu-totChi,'Tích luỹ')}
     </div>
-    <div class="chartbox" style="margin-bottom:20px"><h3>Thu vs Chi theo tháng</h3><canvas id="cBar"></canvas></div>
+    <div class="full shell reveal"><div class="core"><h3>Thu và Chi</h3><div class="h3sub">Theo từng tháng</div><canvas id="cBar"></canvas></div></div>
     <div class="grid2">
-      <div class="chartbox"><h3>Xu hướng số dư</h3><canvas id="cLine"></canvas></div>
-      <div class="chartbox"><h3>Chi tiêu theo danh mục (tổng)</h3><canvas id="cCat"></canvas></div>
+      <div class="shell reveal"><div class="core"><h3>Xu hướng số dư</h3><div class="h3sub">Dòng tiền ròng</div><canvas id="cLine"></canvas></div></div>
+      <div class="shell reveal"><div class="core"><h3>Chi tiêu</h3><div class="h3sub">Tổng theo danh mục</div><canvas id="cCat"></canvas></div></div>
     </div>`;
 
-  new Chart(document.getElementById('cBar'), {
-    type:'bar',
-    data:{ labels:picked, datasets:[
-      {label:'Thu', data:thuArr, backgroundColor:'#22c55e', borderRadius:6},
-      {label:'Chi', data:chiArr, backgroundColor:'#f43f5e', borderRadius:6}
-    ]},
-    options: barOpts()
-  });
+  new Chart(document.getElementById('cBar'),{type:'bar',
+    data:{labels:picked,datasets:[
+      {label:'Thu',data:thuArr,backgroundColor:'rgba(143,180,154,.85)',borderRadius:8,maxBarThickness:38},
+      {label:'Chi',data:chiArr,backgroundColor:'rgba(205,147,132,.85)',borderRadius:8,maxBarThickness:38}]},
+    options:barOpts()});
   charts.bar = Chart.getChart('cBar');
 
-  new Chart(document.getElementById('cLine'), {
-    type:'line',
-    data:{ labels:picked, datasets:[{ label:'Số dư', data:balArr, borderColor:'#8b5cf6',
-      backgroundColor:'rgba(139,92,246,.2)', fill:true, tension:.3, pointRadius:4 }]},
-    options: barOpts()
-  });
+  new Chart(document.getElementById('cLine'),{type:'line',
+    data:{labels:picked,datasets:[{label:'Số dư',data:balArr,borderColor:'#c9a96a',
+      backgroundColor:'rgba(201,169,106,.14)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#c9a96a',borderWidth:2}]},
+    options:barOpts()});
   charts.line = Chart.getChart('cLine');
 
   doughnut('cCat', groupBy(DATA.filter(t=>picked.indexOf(t.month)>=0 && t.direction==='Chi'),'category'));
 }
 
 /* ---------- Tiện ích ---------- */
+function card(ic,label,cls,bg,fg,val,sub){
+  return `<div class="shell reveal"><div class="core">
+    <div class="card-label"><span class="ic" style="background:${bg};color:${fg}">${icon(ic)}</span>${label}</div>
+    <div class="value ${cls}" data-count="${val}">0${CURRENCY}</div>
+    <div class="sub">${sub}</div></div></div>`;
+}
 function sum(rows){ return rows.reduce((a,r)=>a+Number(r.amount||0),0); }
-function groupBy(rows, key){
-  const g={}; rows.forEach(r=>{ const k=r[key]||'Khác'; g[k]=(g[k]||0)+Number(r.amount||0); });
+function groupBy(rows,key){
+  const g={}; rows.forEach(r=>{const k=r[key]||'Khác'; g[k]=(g[k]||0)+Number(r.amount||0);});
   return Object.entries(g).sort((a,b)=>b[1]-a[1]);
 }
 function doughnut(id, entries){
-  if(!entries.length){ document.getElementById(id).parentElement.innerHTML += '<div class="empty">Không có dữ liệu</div>'; return; }
-  new Chart(document.getElementById(id), {
-    type:'doughnut',
-    data:{ labels:entries.map(e=>e[0]), datasets:[{ data:entries.map(e=>e[1]),
-      backgroundColor:PALETTE, borderColor:'#1e293b', borderWidth:2 }]},
-    options:{ plugins:{ legend:{ position:'bottom', labels:{ color:'#e2e8f0', boxWidth:12, padding:10 } },
-      tooltip:{ callbacks:{ label:c=>c.label+': '+money(c.parsed) } } } }
-  });
-  charts[id] = Chart.getChart(id);
+  const el = document.getElementById(id); if(!el) return;
+  if(!entries.length){ el.parentElement.innerHTML += '<div class="empty" style="padding:30px">Không có dữ liệu</div>'; return; }
+  new Chart(el,{type:'doughnut',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),
+      backgroundColor:PALETTE,borderColor:'#14140f',borderWidth:3,hoverOffset:8}]},
+    options:{cutout:'68%',animation:REDUCE?false:{animateScale:true,duration:900,easing:'easeOutQuart'},
+      plugins:{legend:{position:'bottom',labels:{color:'#bdb9ac',boxWidth:9,boxHeight:9,usePointStyle:true,pointStyle:'circle',padding:14,font:{family:'Be Vietnam Pro',size:12}}},
+      tooltip:tooltip()}}});
+  charts[id]=Chart.getChart(id);
 }
 function barOpts(){
-  return { plugins:{ legend:{ labels:{ color:'#e2e8f0' } },
-    tooltip:{ callbacks:{ label:c=>c.dataset.label+': '+money(c.parsed.y) } } },
-    scales:{ x:{ ticks:{ color:'#94a3b8' }, grid:{ color:'#334155' } },
-      y:{ ticks:{ color:'#94a3b8', callback:v=>(v/1e6)+'tr' }, grid:{ color:'#334155' } } } };
+  return {animation:REDUCE?false:{duration:900,easing:'easeOutQuart'},
+    plugins:{legend:{labels:{color:'#bdb9ac',usePointStyle:true,pointStyle:'circle',padding:16,font:{family:'Be Vietnam Pro',size:12}}},tooltip:tooltip()},
+    scales:{x:{ticks:{color:'#7d7a6d',font:{family:'Be Vietnam Pro'}},grid:{display:false},border:{display:false}},
+      y:{ticks:{color:'#7d7a6d',font:{family:'Be Vietnam Pro'},callback:v=>(v/1e6)+'tr'},grid:{color:'rgba(236,233,224,.05)'},border:{display:false}}}};
+}
+function tooltip(){
+  return {backgroundColor:'rgba(20,20,15,.94)',borderColor:'rgba(236,233,224,.12)',borderWidth:1,
+    padding:12,cornerRadius:12,titleColor:'#ece9e0',bodyColor:'#bdb9ac',titleFont:{family:'Playfair Display'},bodyFont:{family:'Be Vietnam Pro'},
+    callbacks:{label:c=>' '+(c.dataset.label?c.dataset.label+': ':'')+money(c.parsed.y??c.parsed)}};
 }
 function renderTable(rows){
-  if(!rows.length){ document.getElementById('tbl').innerHTML='<div class="empty">Không có giao dịch.</div>'; return; }
+  if(!rows.length){ document.getElementById('tbl').innerHTML='<div class="empty" style="padding:24px">Không có giao dịch.</div>'; return; }
   const sorted = rows.slice().sort((a,b)=> (a.date<b.date?1:-1));
   document.getElementById('tbl').innerHTML =
-    '<table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục</th><th>Ghi chú</th><th style="text-align:right">Số tiền</th></tr></thead><tbody>' +
+    '<table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục</th><th>Ghi chú</th><th style="text-align:right">Số tiền</th></tr></thead><tbody>'+
     sorted.map(r=>`<tr>
-      <td>${r.date}</td>
-      <td><span class="tag ${r.direction==='Thu'?'thu':'chi'}">${r.direction}</span></td>
-      <td>${r.category||''}${r.source?' <span style="color:var(--muted)">· '+r.source+'</span>':''}</td>
+      <td style="color:var(--muted)">${r.date}</td>
+      <td><span class="pill ${r.direction==='Thu'?'thu':'chi'}">${r.direction}</span></td>
+      <td>${r.category||''}${r.source?' <span style="color:var(--faint)">· '+r.source+'</span>':''}</td>
       <td style="color:var(--muted)">${r.note||''}</td>
-      <td class="amt ${r.direction==='Thu'?'green':'red'}">${r.direction==='Thu'?'+':'-'}${money(r.amount)}</td>
-    </tr>`).join('') + '</tbody></table>';
+      <td class="amt ${r.direction==='Thu'?'txt-green':'txt-red'}">${r.direction==='Thu'?'+':'−'}${money(r.amount)}</td>
+    </tr>`).join('')+'</tbody></table>';
 }
+
+/* ---------- MOTION (GSAP) ---------- */
+function intro(){
+  if(REDUCE) return;
+  gsap.from('#eb', {y:14,autoAlpha:0,duration:.7,ease:EASE});
+  gsap.from('h1', {y:24,autoAlpha:0,filter:'blur(10px)',duration:1,ease:EASE,delay:.08,clearProps:'filter'});
+  gsap.from('#updated', {y:12,autoAlpha:0,duration:.7,ease:EASE,delay:.24});
+  gsap.from('.controls,.checks', {y:14,autoAlpha:0,duration:.7,ease:EASE,delay:.34,stagger:.06});
+}
+function entrance(){
+  // đếm số tăng dần
+  document.querySelectorAll('[data-count]').forEach(el=>{
+    const end = Number(el.getAttribute('data-count'))||0;
+    if(REDUCE){ el.textContent = money(end); return; }
+    const o={v:0};
+    gsap.to(o,{v:end,duration:1.3,ease:'power3.out',onUpdate:()=>{el.textContent=money(Math.round(o.v));}});
+  });
+  if(REDUCE) return;
+  gsap.from('#content .reveal', {y:30,autoAlpha:0,filter:'blur(8px)',duration:.85,ease:EASE,
+    stagger:.075,clearProps:'filter,transform,opacity'});
+}
+
+/* Chart.js global defaults */
+Chart.defaults.font.family = 'Be Vietnam Pro';
+Chart.defaults.color = '#9b978a';
 
 loadData();
 </script>
